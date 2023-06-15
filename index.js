@@ -42,7 +42,7 @@ async function onMessage(message){
     let quoted = await message.getQuotedMessage();
     if(chat.isGroup){
         let isQuoted = quoted != undefined && quoted.fromMe;
-        let mention = message.body.charAt(0) !== "@" || !message.mentionedIds.findIndex(men => men.includes(process.env.NUMBER)) < 0;
+        let mention = message.body.charAt(0) !== "@" || message.mentionedIds.findIndex(men => men.includes(process.env.NUMBER)) < 0;
         if(!isQuoted && mention) return;
         replyAi(message, !isQuoted);
     } else {
