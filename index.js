@@ -7,7 +7,7 @@ const prefix = process.env.PREFIX;
 async function onMessage(message){
     let contact = await message.getContact();
     await db.read();
-    if(db.data.banned.findIndex(ban => contact.number.includes(ban)) !== -1) return
+    if(db.data.banned.findIndex(ban => contact.number.includes(ban)) !== -1) return;
     if(message.body.charAt(0) === prefix){
         let splitted = message.body.split(" ");
         let command = splitted[0].replace(prefix, "");
@@ -149,13 +149,9 @@ async function replyAi(message, isQuoted = false){
         db.data.chats.push({ user_id: contact.number, fromMe: true, message: message.body });
         db.data.chats.push({ user_id: contact.number, fromMe: false, message: result.content });
     } catch (e){
-        try {
-            console.error(e.data.error.message);
-            message.reply(e.data.error.message);
-        } catch (err){
-            console.error(err);
-            message.reply("An error occured!");
-        }
+        let err = e.toJSON().message;
+        console.error(err);
+        message.reply(err);
     }
     await db.write();
 }
