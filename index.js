@@ -42,8 +42,8 @@ async function onMessage(message){
     let quoted = await message.getQuotedMessage();
     if(chat.isGroup){
         let isQuoted = quoted != undefined && quoted.fromMe;
-        let mention = message.body.charAt(0) !== "@" || message.mentionedIds.findIndex(men => men.includes(process.env.NUMBER)) < 0;
-        if(!isQuoted && mention) return;
+        let mention = message.body.charAt(0) === "@" && message.mentionedIds.findIndex(men => men.includes(process.env.NUMBER)) !== -1;
+        if(!isQuoted && !mention) return;
         replyAi(message, !isQuoted);
     } else {
         replyAi(message);
@@ -115,24 +115,34 @@ async function replyAi(message, isQuoted = false){
         return;
     }
     
-    let character = db.data.characters.find(chr => chr.name == user.character);
-    let chats = db.data.chats.filter(cht => cht.user_id == contact.number)
-        .map(cht => ({ role: cht.fromMe ? "user" : "assistant", content: cht.message }));
-    let completion = await openai.createChatCompletion({
-        model: "gpt-3.5-turbo",
-        max_tokens: 50,
-        temperature: 1,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0,
-        messages: [{ role: "system", content: character.description },
-        ...chats, { role: "user", content: message.body }]
-    });
-    let result = completion.data.choices[0].message;
-    message.reply(result.content);
+    try {
+        let character = db.data.characters.find(chr => chr.name == user.character);
+        let chats = db.data.chats.filter(cht => cht.user_id == contact.number)
+            .map(cht => ({ role: cht.fromMe ? "user" : "assistant", content: cht.message }));
+        let completion = await openai.createChatCompletion({
+            model: "gpt-3.5-turbo",
+            max_tokens: 50,
+            temperature: 1,
+            top_p: 1,
+            frequency_penalty: 0,
+            presence_penalty: 0,
+            messages: [{ role: "system", content: character.description },
+            ...chats, { role: "user", content: message.body }]
+        });
+        let result = completion.data.choices[0].message;
+        message.reply(result.content);
 
-    db.data.chats.push({ user_id: contact.number, fromMe: true, message: message.body });
-    db.data.chats.push({ user_id: contact.number, fromMe: false, message: result.content });
+        db.data.chats.push({ user_id: contact.number, fromMe: true, message: message.body });
+        db.data.chats.push({ user_id: contact.number, fromMe: false, message: result.content });
+    } catch (e){
+        try {
+            console.error(e.data.error.message);
+            message.reply(e.data.error.message);
+        } catch (err){
+            console.error(err);
+            message.reply("An error occured!");
+        }
+    }
     await db.write();
 }
 async function registerUser(number){
