@@ -15,6 +15,9 @@ async function onMessage(message){
         let body = splitted.join(" ");
 
         switch(command){
+            case "sticker":
+                cmdSticker(message);
+                break;
             case "character":
                 cmdCharacter(message, body);
                 break;
@@ -23,6 +26,9 @@ async function onMessage(message){
                 break;
             case "unban":
                 cmdUnBan(message);
+                break;
+            case "reset":
+                resetChats(message);
                 break;
             default:
                 defaultMessage(message)
@@ -49,9 +55,12 @@ async function onMessage(message){
         replyAi(message);
     }
 }
-async function cmdBan(message){
+async function isOwner(message){
     let contact = await message.getContact();
-    if(!contact.number.includes(process.env.OWNER_NUMBER)) return message.reply("You are not my owner!");
+    return contact.number.includes(process.env.OWNER_NUMBER);
+}
+async function cmdBan(message){
+    if(!await isOwner(message)) return;
 
     await db.read();
     let mentioned = message.mentionedIds.map(men => men.replaceAll("@c.us", "")).filter(men => !db.data.banned.includes(men));
@@ -60,8 +69,7 @@ async function cmdBan(message){
     message.reply("Success ban!")
 }
 async function cmdUnBan(message){
-    let contact = await message.getContact();
-    if(!contact.number.includes(process.env.OWNER_NUMBER)) return message.reply("You are not my owner!");
+    if(!await isOwner(message)) return;
 
     await db.read();
     let mentioned = message.mentionedIds.map(men => men.replaceAll("@c.us", ""))
@@ -96,6 +104,12 @@ async function cmdCharacter(message, body){
     await db.write();
 
     message.reply((hasCharacter ? "Your chats has been reset" : "Good") + ", you can start your conversation now");
+}
+async function cmdSticker(message){
+    if(!message.hasMedia) return message.reply("Where is the image?");
+    let media = await message.downloadMedia();
+    if(media.mimetype != "image/jpeg") return message.reply("File is not an image");
+    message.reply(media, undefined, { sendMediaAsSticker: true });
 }
 async function replyAi(message, isQuoted = false){
     if(isQuoted){
@@ -160,7 +174,24 @@ async function defaultMessage(message){
     await db.read();
     db.data.characters.forEach((char, i) => msg += `\n${i + 1}. ${char.name}`);
     message.reply(msg);
-}   
+}
+let RESET_MINUTES = parseInt(process.env.RESET_MINUTES);
+let resetTimeout = setTimeout(() => resetChats(), RESET_MINUTES * 60 * 1000);
+async function resetChats(message = null){
+    if(message != null && !await isOwner(message)) return;
+    await db.read();
+    db.data.chats = [];
+    await db.write();
+    
+    let d = new Date((new Date()).getTime() + RESET_MINUTES * 60000);
+    d.toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" });
+    let msg = `Bot reset at ${d.getHours()}:${d.getMinutes()}`;
+    client.setStatus(msg);
+
+    clearTimeout(resetTimeout);
+    resetTimeout = setTimeout(() => resetChats(), RESET_MINUTES * 60 * 1000);
+    if(message != null) message.reply("Success delete chats!");
+}
 
 client.on("message", onMessage);
 client.initialize();
