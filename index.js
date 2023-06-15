@@ -31,15 +31,9 @@ async function onMessage(message){
                 resetChats(message);
                 break;
             default:
-                defaultMessage(message)
                 let userIndex = db.data.users.findIndex(usr => usr.user_id == contact.number);
-                let user = db.data.users[userIndex];
-
-                if(userIndex < 0 || user.character == null){
-                    registerUser(contact.number);
-                    defaultMessage(message);
-                    return;
-                }
+                if(userIndex < 0) registerUser(contact.number);
+                defaultMessage(message);
         }
         return;
     }
