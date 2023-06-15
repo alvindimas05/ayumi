@@ -11,7 +11,8 @@ const openai = new OpenAIApi(OpenAIConfig);
 const WAWebJS = require("whatsapp-web.js");
 const { Client, LocalAuth } = WAWebJS;
 const client = new Client({
-    authStrategy: new LocalAuth()
+    authStrategy: new LocalAuth(),
+    puppeteer: { args: ["--no-sandbox"] }
 });
 client.on("qr", qr => qrcode.generate(qr, { small: true }));
 client.on("ready", () => console.log("Client is ready!"));
