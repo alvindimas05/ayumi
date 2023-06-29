@@ -6,6 +6,7 @@ const prefix = process.env.PREFIX;
  */
 async function onMessage(message){
     let contact = await message.getContact();
+    contact.number = contact.id._serialized;
     await db.read();
     if(db.data.banned.findIndex(ban => contact.number.includes(ban)) !== -1) return;
     if(message.body.charAt(0) === prefix){
@@ -43,7 +44,7 @@ async function onMessage(message){
     if(chat.isGroup){
         let isQuoted = quoted != undefined && quoted.fromMe;
         let mention = message.body.charAt(0) === "@" && message.mentionedIds.findIndex(men => men.includes(process.env.NUMBER)) !== -1;
-        if(!isQuoted && !mention) return;
+        if((!isQuoted || message.type != "chat") && !mention) return;
         replyAi(message, !isQuoted);
     } else {
         replyAi(message);
@@ -51,7 +52,7 @@ async function onMessage(message){
 }
 async function isOwner(message){
     let contact = await message.getContact();
-    return contact.number.includes(process.env.OWNER_NUMBER);
+    return contact.id._serialized.includes(process.env.OWNER_NUMBER);
 }
 async function cmdBan(message){
     if(!await isOwner(message)) return;
@@ -75,6 +76,7 @@ async function cmdUnBan(message){
 async function cmdCharacter(message, body){
     await db.read();
     let contact = await message.getContact();
+    contact.number = contact.id._serialized;
     let userIndex = db.data.users.findIndex(usr => usr.user_id == contact.number);
     let user = db.data.users[userIndex];
     
@@ -114,6 +116,7 @@ async function replyAi(message, isQuoted = false){
 
     await db.read();
     let contact = await message.getContact();
+    contact.number = contact.id._serialized;
     let userIndex = db.data.users.findIndex(usr => usr.user_id == contact.number);
     let user = db.data.users[userIndex];
 
