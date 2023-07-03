@@ -1,6 +1,7 @@
 const qrcode = require("qrcode-terminal");
 const fs = require("fs");
 require("dotenv").config();
+process.env.TZ = "Asia/Jakarta";
 
 const { Configuration, OpenAIApi } = require("openai");
 const OpenAIConfig = new Configuration({
@@ -20,16 +21,10 @@ client.on("ready", () => console.log("Client is ready!"));
 const { Low, JSONFile } = require("@commonify/lowdb");
 const adapter = new JSONFile(__dirname + "/db.json");
 
-let characters = JSON.parse(fs.readFileSync("characters.json", "utf-8"));
 const db = new Low(adapter);
 (async () => {
     await db.read();
-    db.data ||= {
-        users: [],
-        chats: [],
-        banned: []
-    }
-    db.data.characters = characters;
+    db.data ||= { chats: [] };
     await db.write();
 })();
 

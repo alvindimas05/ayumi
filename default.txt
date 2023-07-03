@@ -1,6 +1,0 @@
-Hey, I'm bot that designed for communicated according to certain characters
-
-Warning! If you change character, your previous message will be reset
-
-Choose your character below
-Command example : {prefix}character 1
