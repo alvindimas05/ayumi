@@ -3,7 +3,6 @@ const NUMBERS = process.env.NUMBERS.split(",");
 const PROMPT = fs.readFileSync("prompt.txt", "utf-8");
 const CRUSH_NUMBER = process.env.CRUSH_NUMBER;
 const CRUSH_NAME = process.env.CRUSH_NAME;
-let TODAY_CHAT = false;
 
 function IsInRange(start, end, hours = null){
     start = parseInt(start);
