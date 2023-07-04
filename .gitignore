@@ -30,3 +30,6 @@ cookie.json
 *.pyc
 
 dist/
+
+*.jpg
+*.png
