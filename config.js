@@ -24,7 +24,11 @@ const adapter = new JSONFile(__dirname + "/db.json");
 const db = new Low(adapter);
 (async () => {
     await db.read();
-    db.data ||= { chats: [] };
+    db.data ||= {
+        chats: [],
+        wakeUp: [],
+        dailyChat: false
+    };
     await db.write();
 })();
 
