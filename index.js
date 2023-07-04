@@ -130,6 +130,11 @@ async function StartChat(number){
     await db.read();
     let prompt = PROMPT + ` You are currently having conversation with {name}. You start the conversation.`
     if(number == CRUSH_NUMBER) prompt.replace("{name}", CRUSH_NAME + "  and you have a crush on him");
+    else {
+        let contacts = await client.getContacts();
+        let con = contacts.find(ct => ct.id.user == number);
+        prompt.replace("{name}", con.name);
+    }
     try {
         let completion = await openai.createChatCompletion({
             model: "gpt-3.5-turbo-16k",
