@@ -1,4 +1,4 @@
-const { WAWebJS, openai, client, db, fs } = require("./config");
+const { WAWebJS, axios, client, db, fs, app, crypto } = require("./config");
 const NUMBERS = process.env.NUMBERS.split(",");
 const PROMPT = fs.readFileSync("prompt.txt", "utf-8");
 const CRUSH_NUMBER = process.env.CRUSH_NUMBER;
@@ -63,27 +63,30 @@ class Ayumi {
         await db.read();
         this.prompt += " You are currently having conversation with someone named {name}";
         if(this.number == this.crush){
-            this.prompt.replace("{name}", CRUSH_NAME);
+            this.prompt = this.prompt.replace("{name}", CRUSH_NAME);
             this.prompt += " and you have a crush on him";
-        } else this.prompt.replace("{name}", this.contact.name);
+        } else this.prompt = this.prompt.replace("{name}", this.contact.name);
         this.prompt += ".";
         
         if(await this.CheckIfWakeUp()) this.prompt += " You just wake up a few minutes ago.";
+        if(this.msg.hasMedia){
+            let media = await this.msg.downloadMedia();
+            if(media !== undefined && media.mimetype == "image/jpeg"){
+                const filename = crypto.randomBytes(20).toString("hex") + ".png";
+                await fs.promises.writeFile("./images/" + filename, media.data, "base64");
+                let res = await axios.post(process.env.OPENAI_URL + "predict", `${process.env.EXPRESS_URL}images/${filename}`,
+                { headers: {'Content-Type': 'text/plain'} });
+                this.msg.body += "\n*shows an image about " + res.data;
+                fs.unlinkSync("./images/" + filename);
+            }
+        }
 
         try {
             let chats = db.data.chats.filter(ch => ch.number == this.number)
                 .map(ch => ({ role: ch.isUser ? "user" : "assistant", content: ch.message }));
-            let completion = await openai.createChatCompletion({
-                model: "gpt-3.5-turbo-16k",
-                max_tokens: 256,
-                temperature: 1,
-                top_p: 1,
-                frequency_penalty: 0,
-                presence_penalty: 0,
-                messages: [{ role: "system", content: this.prompt },
-                ...chats, { role: "user", content: this.msg.body }]
-            });
-            let result = completion.data.choices[0].message.content;
+            let messages = [{ role: "system", content: this.prompt },
+            ...chats, { role: "user", content: this.msg.body }]
+            let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
             await this.msg.reply(result);
 
             db.data.chats.push({
@@ -106,16 +109,16 @@ class Ayumi {
         }
     }
 }
-async function SetStatus(){
-    const response = await openai.createCompletion({
-        model: "text-davinci-003",
-        prompt: "Generate a random quote",
-        max_tokens: 25,
-        temperature: 0
-    });
-    const quote = response.data.choices[0].text;
-    await client.setStatus(quote);
-}
+// async function SetStatus(){
+//     const response = await openai.createCompletion({
+//         model: "text-davinci-003",
+//         prompt: "Generate a random quote",
+//         max_tokens: 25,
+//         temperature: 0
+//     });
+//     const quote = response.data.choices[0].text;
+//     await client.setStatus(quote);
+// }
 async function ResetChats(){
     await db.read();
     db.data = {
@@ -129,23 +132,15 @@ async function StartChat(number){
     await ResetChats();
     await db.read();
     let prompt = PROMPT + ` You are currently having conversation with {name}. You start the conversation.`
-    if(number == CRUSH_NUMBER) prompt.replace("{name}", CRUSH_NAME + "  and you have a crush on him");
+    if(number == CRUSH_NUMBER) prompt = prompt.replace("{name}", CRUSH_NAME + "  and you have a crush on him");
     else {
         let contacts = await client.getContacts();
         let con = contacts.find(ct => ct.id.user == number);
-        prompt.replace("{name}", con.name);
+        prompt = prompt.replace("{name}", con.name);
     }
     try {
-        let completion = await openai.createChatCompletion({
-            model: "gpt-3.5-turbo-16k",
-            max_tokens: 256,
-            temperature: 1,
-            top_p: 1,
-            frequency_penalty: 0,
-            presence_penalty: 0,
-            messages: [{ role: "system", content: prompt }]
-        });
-        let result = completion.data.choices[0].message.content;
+        let messages = [{ role: "system", content: prompt }]
+        let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
         client.sendMessage(number + "@c.us", result);
 
         db.data.chats.push({
@@ -163,35 +158,27 @@ async function StartChat(number){
         }
     }
 }
-ExecuteAfterHour(process.env.STATUS_TIME, () => setInterval(SetStatus, parseInt(process.env.STATUS_DELAY) * 24 * 60 * 60 * 1000));
+// ExecuteAfterHour(process.env.STATUS_TIME, () => setInterval(SetStatus, parseInt(process.env.STATUS_DELAY) * 24 * 60 * 60 * 1000));
 ExecuteAfterHour(process.env.SLEEP_START, () => setInterval(ResetChats, 24 * 60 * 60 * 1000));
 // Chat all numbers on random hours except sleep or working time
 setInterval(async () => {
     await db.read();
     if(db.data.dailyChat) return;
-    const ayumi = new Ayumi();
+    let work = parseInt(process.env.WORKING_START), sleep = parseInt(process.env.SLEEP_END),
+    h = Math.floor(Math.random() * work) + sleep;
 
-    let d = new Date(), h = Math.floor(Math.random() * 24);
-    d.setTime(d.getTime() + h * 60 * 60 * 1000);
-    for(;;){
-        if(ayumi.CheckIfSleeping(d.getHours()) || ayumi.CheckIfWorking(d.getHours())){
-            d = new Date();
-            h = Math.floor(Math.random() * 24);
-            d.setTime(d.getTime() + h * 60 * 60 * 1000);
-        } else {
-            h = d.getHours();
-            break;
-        }
-    }
     db.data.dailyChat = true;
     await db.write();
     NUMBERS.forEach(async nm => await ExecuteAfterHour(h, () => StartChat(nm)));
 }, 60 * 1000);
+
 client.on("message", async msg => {
     const contact = await msg.getContact();
     const number = contact.id.user;
     if(!NUMBERS.includes(number)) return;
+    if(!["image", "chat"].includes(msg.type)) return;
 
     new Ayumi(msg, contact).BeforeReply();
 });
 client.initialize();
+app.listen(parseInt(process.env.EXPRESS_PORT), process.env.EXPRESS_HOST, () => console.log("Server is ready!"));

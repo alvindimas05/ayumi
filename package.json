@@ -11,10 +11,11 @@
   "license": "ISC",
   "dependencies": {
     "@commonify/lowdb": "^3.0.0",
+    "axios": "^1.4.0",
     "dotenv": "^16.1.4",
+    "express": "^4.18.2",
     "fs": "^0.0.1-security",
     "nodemon": "^2.0.22",
-    "openai": "^3.3.0",
     "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "^1.21.0"
   }
