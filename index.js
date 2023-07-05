@@ -1,4 +1,5 @@
 const { WAWebJS, axios, client, db, fs, app, crypto } = require("./config");
+const { MessageMedia } = WAWebJS;
 const NUMBERS = process.env.NUMBERS.split(",");
 const PROMPT = fs.readFileSync("prompt.txt", "utf-8");
 const CRUSH_NUMBER = process.env.CRUSH_NUMBER;
@@ -25,6 +26,11 @@ function ExecuteAfterHour(hour, func){
         else setTimeout(checkHour, checkInterval);
     };
     checkHour();
+}
+async function PredictImage(filename){
+    let res = await axios.post("https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base",
+    `${process.env.EXPRESS_URL}images/${filename}`);
+    return res.data[0].generated_text;
 }
 
 class Ayumi {
@@ -74,9 +80,9 @@ class Ayumi {
             if(media !== undefined && media.mimetype == "image/jpeg"){
                 const filename = crypto.randomBytes(20).toString("hex") + ".png";
                 await fs.promises.writeFile("./images/" + filename, media.data, "base64");
-                let res = await axios.post(process.env.OPENAI_URL + "predict", `${process.env.EXPRESS_URL}images/${filename}`,
-                { headers: {'Content-Type': 'text/plain'} });
-                this.msg.body += "\n*shows an image about " + res.data;
+                
+                let predict = await PredictImage(filename);
+                this.msg.body += "\n*shows an image about " + predict;
                 fs.unlinkSync("./images/" + filename);
             }
         }
@@ -131,17 +137,32 @@ async function ResetChats(){
 async function StartChat(number){
     await ResetChats();
     await db.read();
-    let prompt = PROMPT + ` You are currently having conversation with {name}. You start the conversation.`
+    let prompt = PROMPT + ` You are currently having conversation with {name}. You start the conversation.`;
     if(number == CRUSH_NUMBER) prompt = prompt.replace("{name}", CRUSH_NAME + "  and you have a crush on him");
     else {
         let contacts = await client.getContacts();
         let con = contacts.find(ct => ct.id.user == number);
         prompt = prompt.replace("{name}", con.name);
     }
+    let withPainting = Math.random() < .5;
+    if(withPainting){
+        let messages = [{ role: "user", content: process.env.PAINTING_PROMPT }];
+        let prompt = (await axios.post(process.env.OPENAI_URL, { messages })).data;
+        
+        let res = await axios.post("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1", prompt,
+        { responseType: "arraybuffer" });
+
+        let buffer = Buffer.from(res.data, 'binary').toString("base64");
+        await fs.promises.writeFile("./images/painting.png", buffer, "base64");
+        
+        let predict = await PredictImage("painting.png");
+        prompt += "You showed a painting about " + predict;
+    }
     try {
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
-        client.sendMessage(number + "@c.us", result);
+        let media = withPainting ? MessageMedia.fromFilePath("./images/painting.png") : null;
+        client.sendMessage(number + "@c.us", result, withPainting ? { media } : undefined);
 
         db.data.chats.push({
             number: number,
@@ -161,16 +182,19 @@ async function StartChat(number){
 // ExecuteAfterHour(process.env.STATUS_TIME, () => setInterval(SetStatus, parseInt(process.env.STATUS_DELAY) * 24 * 60 * 60 * 1000));
 ExecuteAfterHour(process.env.SLEEP_START, () => setInterval(ResetChats, 24 * 60 * 60 * 1000));
 // Chat all numbers on random hours except sleep or working time
-setInterval(async () => {
+async function DailyChat(){
     await db.read();
     if(db.data.dailyChat) return;
-    let work = parseInt(process.env.WORKING_START), sleep = parseInt(process.env.SLEEP_END),
-    h = Math.floor(Math.random() * work) + sleep;
+    let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours(),
+    h = Math.floor(Math.random() * work) + start;
 
+    console.log(`Daily chat at ${h}:00`);
     db.data.dailyChat = true;
     await db.write();
     NUMBERS.forEach(async nm => await ExecuteAfterHour(h, () => StartChat(nm)));
-}, 60 * 1000);
+}
+DailyChat();
+setInterval(DailyChat, 60 * 1000);
 
 client.on("message", async msg => {
     const contact = await msg.getContact();
