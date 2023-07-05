@@ -137,7 +137,7 @@ async function ResetChats(){
 async function StartChat(number){
     await ResetChats();
     await db.read();
-    let prompt = PROMPT + ` You are currently having conversation with {name}. You start the conversation.`;
+    let prompt = PROMPT + ` You are currently having conversation with {name}.`;
     if(number == CRUSH_NUMBER) prompt = prompt.replace("{name}", CRUSH_NAME + "  and you have a crush on him");
     else {
         let contacts = await client.getContacts();
@@ -146,21 +146,29 @@ async function StartChat(number){
     }
     let withPainting = Math.random() < .5;
     if(withPainting){
-        let messages = [{ role: "user", content: process.env.PAINTING_PROMPT }];
-        let prompt = (await axios.post(process.env.OPENAI_URL, { messages })).data;
-        
-        let res = await axios.post("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1", prompt,
-        { responseType: "arraybuffer" });
-
-        let buffer = Buffer.from(res.data, 'binary').toString("base64");
-        await fs.promises.writeFile("./images/painting.png", buffer, "base64");
-        
-        let predict = await PredictImage("painting.png");
-        prompt += "You showed a painting about " + predict;
+        try {
+            let messages = [{ role: "user", content: process.env.PAINTING_PROMPT }];
+            let prompt = (await axios.post(process.env.OPENAI_URL, { messages })).data;
+            
+            let res = await axios.post("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1", prompt,
+            { responseType: "arraybuffer" });
+    
+            let buffer = Buffer.from(res.data, 'binary').toString("base64");
+            await fs.promises.writeFile("./images/painting.png", buffer, "base64");
+            
+            let predict = await PredictImage("painting.png");
+            prompt += " You showed your painting about " + predict + ".";
+        } catch(err){
+            console.error(err);
+            withPainting = false;
+        }
     }
+    prompt += "You start the conversation.";
     try {
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
+
+        if(withPainting) result = result.split("\n")[0].replaceAll('"', "");
         let media = withPainting ? MessageMedia.fromFilePath("./images/painting.png") : null;
         client.sendMessage(number + "@c.us", result, withPainting ? { media } : undefined);
 
