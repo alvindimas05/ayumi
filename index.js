@@ -28,7 +28,7 @@ function ExecuteAfterHour(hour, func){
     checkHour();
 }
 async function PredictImage(filename){
-    let res = await axios.post("https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base",
+    let res = await axios.post("https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning",
     `${process.env.EXPRESS_URL}images/${filename}`);
     return res.data[0].generated_text;
 }
@@ -145,18 +145,20 @@ async function StartChat(number){
         prompt = prompt.replace("{name}", con.name);
     }
     let withPainting = Math.random() < .5;
+    let predict = null;
     if(withPainting){
         try {
             let messages = [{ role: "user", content: process.env.PAINTING_PROMPT }];
-            let prompt = (await axios.post(process.env.OPENAI_URL, { messages })).data;
+            let promp = (await axios.post(process.env.OPENAI_URL, { messages })).data;
             
-            let res = await axios.post("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1", prompt,
+            let res = await axios.post("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1", promp,
             { responseType: "arraybuffer" });
     
             let buffer = Buffer.from(res.data, 'binary').toString("base64");
             await fs.promises.writeFile("./images/painting.png", buffer, "base64");
             
-            let predict = await PredictImage("painting.png");
+            predict = await PredictImage("painting.png");
+            if(predict[predict.length - 1] === " ") predict = predict.slice(0, -1);
             prompt += " You showed your painting about " + predict + ".";
         } catch(err){
             console.error(err);
@@ -168,33 +170,34 @@ async function StartChat(number){
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
 
-        if(withPainting) result = result.split("\n")[0].replaceAll('"', "");
+        if(withPainting) result = result.split("\n")[0].replaceAll('"', "").replaceAll("Ayumi: ", "");
         let media = withPainting ? MessageMedia.fromFilePath("./images/painting.png") : null;
         client.sendMessage(number + "@c.us", result, withPainting ? { media } : undefined);
 
+        if(withPainting) result += "\n*shows your painting about " + predict;
         db.data.chats.push({
             number: number,
             isUser: false,
             message: result
         });
         await db.write();
-    } catch(e){
-        try {
-            const err = e.toJSON().message;
-            console.error(err);
-        } catch(er){
-            console.error(e);
-        }
+    } catch(err){
+        console.error(err);
     }
 }
 // ExecuteAfterHour(process.env.STATUS_TIME, () => setInterval(SetStatus, parseInt(process.env.STATUS_DELAY) * 24 * 60 * 60 * 1000));
 ExecuteAfterHour(process.env.SLEEP_START, () => setInterval(ResetChats, 24 * 60 * 60 * 1000));
 // Chat all numbers on random hours except sleep or working time
+function getRandomRange(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 async function DailyChat(){
     await db.read();
     if(db.data.dailyChat) return;
     let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours(),
-    h = Math.floor(Math.random() * work) + start;
+    h = getRandomRange(start, work);
 
     console.log(`Daily chat at ${h}:00`);
     db.data.dailyChat = true;

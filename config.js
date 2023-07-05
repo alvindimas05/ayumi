@@ -36,6 +36,6 @@ const db = new Low(adapter);
     };
     await db.write();
 })();
-fs.mkdirSync("./images");
+if(!fs.existsSync("./images")) fs.mkdirSync("./images");
 
 module.exports = { WAWebJS, axios, client, db, fs, app, crypto };
