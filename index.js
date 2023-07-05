@@ -151,7 +151,7 @@ async function StartChat(number){
             let messages = [{ role: "user", content: process.env.PAINTING_PROMPT }];
             let promp = (await axios.post(process.env.OPENAI_URL, { messages })).data;
             
-            let res = await axios.post("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1", promp,
+            let res = await axios.post("https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5", promp,
             { responseType: "arraybuffer" });
     
             let buffer = Buffer.from(res.data, 'binary').toString("base64");
@@ -165,7 +165,7 @@ async function StartChat(number){
             withPainting = false;
         }
     }
-    prompt += "You start the conversation.";
+    prompt += " You start the conversation.";
     try {
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
@@ -204,8 +204,6 @@ async function DailyChat(){
     await db.write();
     NUMBERS.forEach(async nm => await ExecuteAfterHour(h, () => StartChat(nm)));
 }
-DailyChat();
-setInterval(DailyChat, 60 * 1000);
 
 client.on("message", async msg => {
     const contact = await msg.getContact();
@@ -214,6 +212,11 @@ client.on("message", async msg => {
     if(!["image", "chat"].includes(msg.type)) return;
 
     new Ayumi(msg, contact).BeforeReply();
+});
+client.on("ready", () => {
+    DailyChat();
+    setInterval(DailyChat, 60 * 1000);
+    console.log("Client is ready!");
 });
 client.initialize();
 app.listen(parseInt(process.env.EXPRESS_PORT), process.env.EXPRESS_HOST, () => console.log("Server is ready!"));
