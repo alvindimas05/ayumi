@@ -44,7 +44,7 @@ def post():
         messages=req["messages"]
     )
     return res
-
+app.run(host="0.0.0.0", port=80)
 # @app.route("/predict", methods=["POST"])
 # def predict():
 #     if request.method != "POST": return
@@ -63,5 +63,3 @@ def post():
 #     print(result)
 #     os.unlink(file_name)
 #     return result
-
-app.run()
