@@ -28,7 +28,7 @@ function ExecuteAfterHour(hour, func){
     checkHour();
 }
 async function PredictImage(filename){
-    let res = await axios.post("https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning",
+    let res = await axios.post("https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large",
     `${process.env.EXPRESS_URL}images/${filename}`);
     return res.data[0].generated_text;
 }
@@ -78,12 +78,17 @@ class Ayumi {
         if(this.msg.hasMedia){
             let media = await this.msg.downloadMedia();
             if(media !== undefined && media.mimetype == "image/jpeg"){
-                const filename = crypto.randomBytes(20).toString("hex") + ".png";
-                await fs.promises.writeFile("./images/" + filename, media.data, "base64");
-                
-                let predict = await PredictImage(filename);
-                this.msg.body += "\n*shows an image about " + predict;
-                fs.unlinkSync("./images/" + filename);
+                try {
+                    const filename = crypto.randomBytes(20).toString("hex") + ".png";
+                    await fs.promises.writeFile("./images/" + filename, media.data, "base64");
+                    
+                    let predict = await PredictImage(filename);
+                    this.msg.body += "\n*shows an image about " + predict;
+                    fs.unlinkSync("./images/" + filename);
+                } catch(err){
+                    console.log(err);
+                    return this.msg.reply("There was an error when processing your image!");
+                }
             }
         }
 
@@ -105,13 +110,8 @@ class Ayumi {
                 message: result
             });
             await db.write();
-        } catch(e){
-            try {
-                const err = e.toJSON().message;
-                message.reply("Ayumi's connection is having an error, try to chat again later.\nError message : " + err);
-            } catch(er){
-                console.error(e);
-            }
+        } catch(err){
+            console.error(err);
         }
     }
 }
@@ -196,10 +196,16 @@ function getRandomRange(min, max) {
 async function DailyChat(){
     await db.read();
     if(db.data.dailyChat) return;
-    let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours(),
-    h = getRandomRange(start, work);
+    let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours();
 
+    const ayumi = new Ayumi();
+    if(ayumi.CheckIfSleeping(start) || ayumi.CheckIfWorking(start)){
+        start = parseInt(process.env.SLEEP_END);
+    }
+
+    const h = getRandomRange(start, work);
     console.log(`Daily chat at ${h}:00`);
+    
     db.data.dailyChat = true;
     await db.write();
     NUMBERS.forEach(async nm => await ExecuteAfterHour(h, () => StartChat(nm)));
