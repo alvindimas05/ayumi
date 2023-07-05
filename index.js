@@ -1,4 +1,5 @@
 const { WAWebJS, axios, client, db, fs, app, crypto } = require("./config");
+const { MessageMedia } = WAWebJS;
 const NUMBERS = process.env.NUMBERS.split(",");
 const PROMPT = fs.readFileSync("prompt.txt", "utf-8");
 const CRUSH_NUMBER = process.env.CRUSH_NUMBER;
@@ -25,6 +26,11 @@ function ExecuteAfterHour(hour, func){
         else setTimeout(checkHour, checkInterval);
     };
     checkHour();
+}
+async function PredictImage(filename){
+    let res = await axios.post("https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning",
+    `${process.env.EXPRESS_URL}images/${filename}`);
+    return res.data[0].generated_text;
 }
 
 class Ayumi {
@@ -74,9 +80,9 @@ class Ayumi {
             if(media !== undefined && media.mimetype == "image/jpeg"){
                 const filename = crypto.randomBytes(20).toString("hex") + ".png";
                 await fs.promises.writeFile("./images/" + filename, media.data, "base64");
-                let res = await axios.post(process.env.OPENAI_URL + "predict", `${process.env.EXPRESS_URL}images/${filename}`,
-                { headers: {'Content-Type': 'text/plain'} });
-                this.msg.body += "\n*shows an image about " + res.data;
+                
+                let predict = await PredictImage(filename);
+                this.msg.body += "\n*shows an image about " + predict;
                 fs.unlinkSync("./images/" + filename);
             }
         }
@@ -131,46 +137,73 @@ async function ResetChats(){
 async function StartChat(number){
     await ResetChats();
     await db.read();
-    let prompt = PROMPT + ` You are currently having conversation with {name}. You start the conversation.`
+    let prompt = PROMPT + ` You are currently having conversation with {name}.`;
     if(number == CRUSH_NUMBER) prompt = prompt.replace("{name}", CRUSH_NAME + "  and you have a crush on him");
     else {
         let contacts = await client.getContacts();
         let con = contacts.find(ct => ct.id.user == number);
         prompt = prompt.replace("{name}", con.name);
     }
+    let withPainting = Math.random() < .5;
+    let predict = null;
+    if(withPainting){
+        try {
+            let messages = [{ role: "user", content: process.env.PAINTING_PROMPT }];
+            let promp = (await axios.post(process.env.OPENAI_URL, { messages })).data;
+            
+            let res = await axios.post("https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5", promp,
+            { responseType: "arraybuffer" });
+    
+            let buffer = Buffer.from(res.data, 'binary').toString("base64");
+            await fs.promises.writeFile("./images/painting.png", buffer, "base64");
+            
+            predict = await PredictImage("painting.png");
+            if(predict[predict.length - 1] === " ") predict = predict.slice(0, -1);
+            prompt += " You showed your painting about " + predict + ".";
+        } catch(err){
+            console.error(err);
+            withPainting = false;
+        }
+    }
+    prompt += " You start the conversation.";
     try {
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
-        client.sendMessage(number + "@c.us", result);
 
+        if(withPainting) result = result.split("\n")[0].replaceAll('"', "").replaceAll("Ayumi: ", "");
+        let media = withPainting ? MessageMedia.fromFilePath("./images/painting.png") : null;
+        client.sendMessage(number + "@c.us", result, withPainting ? { media } : undefined);
+
+        if(withPainting) result += "\n*shows your painting about " + predict;
         db.data.chats.push({
             number: number,
             isUser: false,
             message: result
         });
         await db.write();
-    } catch(e){
-        try {
-            const err = e.toJSON().message;
-            console.error(err);
-        } catch(er){
-            console.error(e);
-        }
+    } catch(err){
+        console.error(err);
     }
 }
 // ExecuteAfterHour(process.env.STATUS_TIME, () => setInterval(SetStatus, parseInt(process.env.STATUS_DELAY) * 24 * 60 * 60 * 1000));
 ExecuteAfterHour(process.env.SLEEP_START, () => setInterval(ResetChats, 24 * 60 * 60 * 1000));
 // Chat all numbers on random hours except sleep or working time
-setInterval(async () => {
+function getRandomRange(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+async function DailyChat(){
     await db.read();
     if(db.data.dailyChat) return;
-    let work = parseInt(process.env.WORKING_START), sleep = parseInt(process.env.SLEEP_END),
-    h = Math.floor(Math.random() * work) + sleep;
+    let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours(),
+    h = getRandomRange(start, work);
 
+    console.log(`Daily chat at ${h}:00`);
     db.data.dailyChat = true;
     await db.write();
     NUMBERS.forEach(async nm => await ExecuteAfterHour(h, () => StartChat(nm)));
-}, 60 * 1000);
+}
 
 client.on("message", async msg => {
     const contact = await msg.getContact();
@@ -179,6 +212,11 @@ client.on("message", async msg => {
     if(!["image", "chat"].includes(msg.type)) return;
 
     new Ayumi(msg, contact).BeforeReply();
+});
+client.on("ready", () => {
+    DailyChat();
+    setInterval(DailyChat, 60 * 1000);
+    console.log("Client is ready!");
 });
 client.initialize();
 app.listen(parseInt(process.env.EXPRESS_PORT), process.env.EXPRESS_HOST, () => console.log("Server is ready!"));

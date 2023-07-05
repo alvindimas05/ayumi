@@ -21,7 +21,6 @@ const client = new Client({
     puppeteer: { args: ["--no-sandbox"] }
 });
 client.on("qr", qr => qrcode.generate(qr, { small: true }));
-client.on("ready", () => console.log("Client is ready!"));
 
 const { Low, JSONFile } = require("@commonify/lowdb");
 const adapter = new JSONFile(__dirname + "/db.json");
@@ -36,5 +35,6 @@ const db = new Low(adapter);
     };
     await db.write();
 })();
+if(!fs.existsSync("./images")) fs.mkdirSync("./images");
 
 module.exports = { WAWebJS, axios, client, db, fs, app, crypto };
