@@ -50,6 +50,18 @@ class Ayumi {
         if(this.CheckIfWorking()) return this.msg.reply("Ayumi is working right now, try to chat again later.");
         this.Reply();
     }
+    async SendRandomSticker(){
+        const sendSticker = Math.random() < .5;
+        if(!sendSticker) return false;
+
+        const stickers = await fs.promises.readdir("./stickers");
+        console.log(stickers.length);
+        const i = Math.floor(Math.random() * stickers.length);
+        console.log(i);
+        const media = MessageMedia.fromFilePath("./stickers/" + stickers[i]);
+        await client.sendMessage(this.number + "@c.us", media, { sendMediaAsSticker: true });
+        return true;
+    }
     CheckIfSleeping(hours = null){
         return IsInRange(process.env.SLEEP_START, process.env.SLEEP_END, hours);
     }
@@ -99,7 +111,7 @@ class Ayumi {
             ...chats, { role: "user", content: this.msg.body }]
             let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
             await this.msg.reply(result);
-
+            await this.SendRandomSticker();
             db.data.chats.push({
                 number: this.number,
                 isUser: true,
@@ -111,6 +123,7 @@ class Ayumi {
             });
             await db.write();
         } catch(err){
+            this.msg.reply("There was an error with Ayumi's connection. Please chat again next time.");
             console.error(err);
         }
     }
@@ -130,8 +143,13 @@ async function ResetChats(){
     db.data = {
         chats: [],
         wakeUp: [],
-        dailyChat: false
+        // dailyChat: false
     };
+    await db.write();
+}
+async function ResetDaily(){
+    await db.read();
+    db.data.dailyChat = false;
     await db.write();
 }
 async function StartChat(number){
@@ -150,9 +168,10 @@ async function StartChat(number){
         try {
             let messages = [{ role: "user", content: process.env.PAINTING_PROMPT }];
             let promp = (await axios.post(process.env.OPENAI_URL, { messages })).data;
+            prompt = promp.replaceAll('"', "");
             
-            let res = await axios.post("https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5", promp,
-            { responseType: "arraybuffer" });
+            let res = await axios.post("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1",
+            { inputs: promp, wait_for_model: true }, { responseType: "arraybuffer" });
     
             let buffer = Buffer.from(res.data, 'binary').toString("base64");
             await fs.promises.writeFile("./images/painting.png", buffer, "base64");
@@ -186,7 +205,10 @@ async function StartChat(number){
     }
 }
 // ExecuteAfterHour(process.env.STATUS_TIME, () => setInterval(SetStatus, parseInt(process.env.STATUS_DELAY) * 24 * 60 * 60 * 1000));
-ExecuteAfterHour(process.env.SLEEP_START, () => setInterval(ResetChats, 24 * 60 * 60 * 1000));
+ExecuteAfterHour(process.env.SLEEP_START, () => setInterval(() => {
+    ResetChats();
+    ResetDaily();
+}, 24 * 60 * 60 * 1000));
 // Chat all numbers on random hours except sleep or working time
 function getRandomRange(min, max) {
     min = Math.ceil(min);

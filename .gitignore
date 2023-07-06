@@ -5,3 +5,4 @@ db.json
 .env
 test.js
 images/*
+ffmpeg
