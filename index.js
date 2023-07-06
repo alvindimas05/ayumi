@@ -55,9 +55,7 @@ class Ayumi {
         if(!sendSticker) return false;
 
         const stickers = await fs.promises.readdir("./stickers");
-        console.log(stickers.length);
         const i = Math.floor(Math.random() * stickers.length);
-        console.log(i);
         const media = MessageMedia.fromFilePath("./stickers/" + stickers[i]);
         await client.sendMessage(this.number + "@c.us", media, { sendMediaAsSticker: true });
         return true;
