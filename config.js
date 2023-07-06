@@ -18,7 +18,8 @@ const WAWebJS = require("whatsapp-web.js");
 const { Client, LocalAuth } = WAWebJS;
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: { args: ["--no-sandbox"] }
+    puppeteer: { args: ["--no-sandbox"] },
+    ffmpegPath: process.env.FFMPEG_PATH
 });
 client.on("qr", qr => qrcode.generate(qr, { small: true }));
 
