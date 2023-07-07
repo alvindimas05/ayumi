@@ -187,7 +187,7 @@ async function StartChat(number){
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
 
-        if(withPainting) result = result.split("\n")[0].replaceAll('"', "").replaceAll("Ayumi: ", "");
+        result = result.split("\n")[0].replaceAll('"', "").replaceAll("Ayumi: ", "");
         let media = withPainting ? MessageMedia.fromFilePath("./images/painting.png") : null;
         client.sendMessage(number + "@c.us", result, withPainting ? { media } : undefined);
 
