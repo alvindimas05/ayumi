@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon -e js index.js",
-    "test": "node test.js"
+    "test": "set NODE_ENV=production && node test.js"
   },
   "author": "",
   "license": "ISC",
@@ -16,6 +16,8 @@
     "dotenv": "^16.1.4",
     "express": "^4.18.2",
     "fs": "^0.0.1-security",
+    "http": "^0.0.1-security",
+    "https": "^1.0.0",
     "nodemon": "^2.0.22",
     "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "^1.21.0"

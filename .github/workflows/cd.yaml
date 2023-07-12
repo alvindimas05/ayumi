@@ -24,4 +24,5 @@ jobs:
             echo -e '\nHF_API_KEY=${{ secrets.HF_API_KEY }}' >> .env
             git pull origin v2
             npm install
+            echo -e '\nNODE_ENV=production' >> .env
             pm2 restart ayumi

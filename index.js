@@ -4,6 +4,7 @@ const NUMBERS = process.env.NUMBERS.split(",");
 const PROMPT = fs.readFileSync("prompt.txt", "utf-8");
 const CRUSH_NUMBER = process.env.CRUSH_NUMBER;
 const CRUSH_NAME = process.env.CRUSH_NAME;
+const NODE_ENV = process.env.NODE_ENV.trim();
 
 function IsInRange(start, end, hours = null){
     start = parseInt(start);
@@ -27,12 +28,12 @@ function ExecuteAfterHour(hour, func){
     };
     checkHour();
 }
-async function PredictImage(filename){
-    let res = await axios.post("https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large",
-    { wait_for_model: true, inputs: `${process.env.EXPRESS_URL}images/${filename}` },
-        { headers: { Authorization: `Bearer ${process.env.HF_API_KEY}` } });
-    return res.data[0].generated_text;
-}
+// async function PredictImage(filename){
+//     let res = await axios.post("https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large",
+//     { wait_for_model: true, inputs: `${process.env.EXPRESS_URL}images/${filename}` },
+//         { headers: { Authorization: `Bearer ${process.env.HF_API_KEY}` } });
+//     return res.data[0].generated_text;
+// }
 
 class Ayumi {
     /** 
@@ -86,6 +87,7 @@ class Ayumi {
         this.prompt += ".";
         
         if(await this.CheckIfWakeUp()) this.prompt += " You just wake up a few minutes ago.";
+        const filename = null;
         if(this.msg.hasMedia){
             let media = await this.msg.downloadMedia();
             if(media !== undefined && media.mimetype === "image/jpeg"){
@@ -93,9 +95,9 @@ class Ayumi {
                     const filename = crypto.randomBytes(20).toString("hex") + ".png";
                     await fs.promises.writeFile("./images/" + filename, media.data, "base64");
                     
-                    let predict = await PredictImage(filename);
-                    this.msg.body += "\n*shows an image about " + predict;
-                    fs.unlinkSync("./images/" + filename);
+                    // let predict = await PredictImage(filename);
+                    this.msg.body += `\n${process.env.EXPRESS_URL}images/${filename}`;
+                    // fs.unlinkSync("./images/" + filename);
                 } catch(err){
                     console.log(err);
                     return this.msg.reply("There was an error when processing your image!");
@@ -109,6 +111,8 @@ class Ayumi {
             let messages = [{ role: "system", content: this.prompt },
             ...chats, { role: "user", content: this.msg.body }]
             let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
+            if(this.msg.hasMedia) fs.unlinkSync("./images/" + filename);
+
             await this.msg.reply(result);
             await this.SendRandomSticker();
             db.data.chats.push({
@@ -222,4 +226,15 @@ client.on("ready", () => {
     console.log("Client is ready!");
 });
 client.initialize();
-app.listen(parseInt(process.env.EXPRESS_PORT), process.env.EXPRESS_HOST, () => console.log("Server is ready!"));
+
+if(NODE_ENV === 'production'){
+    const http = require("http");
+    const https = require("https");
+    const key = fs.readFileSync(process.env.PRIVKEY_PATH, 'utf-8');
+    const cert = fs.readFileSync(process.env.CERT_PATH, 'utf-8');
+
+    http.createServer(app).listen(80);
+    https.createServer({ key, cert }, app).listen(443);
+    console.log("Running on production mode...");
+} else
+    app.listen(parseInt(process.env.EXPRESS_PORT), process.env.EXPRESS_HOST, () => console.log("Server is ready!"));
