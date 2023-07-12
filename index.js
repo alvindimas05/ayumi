@@ -87,12 +87,12 @@ class Ayumi {
         this.prompt += ".";
         
         if(await this.CheckIfWakeUp()) this.prompt += " You just wake up a few minutes ago.";
-        const filename = null;
+        let filename = null;
         if(this.msg.hasMedia){
             let media = await this.msg.downloadMedia();
             if(media !== undefined && media.mimetype === "image/jpeg"){
                 try {
-                    const filename = crypto.randomBytes(20).toString("hex") + ".png";
+                    filename = crypto.randomBytes(20).toString("hex") + ".png";
                     await fs.promises.writeFile("./images/" + filename, media.data, "base64");
                     
                     // let predict = await PredictImage(filename);
