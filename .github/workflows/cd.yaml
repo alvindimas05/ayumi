@@ -21,7 +21,7 @@ jobs:
             rm -rf db.json
             rm -rf .env
             cp .env.example .env
-            echo HF_API_KEY=${{ secrets.HF_API_KEY }} >> .env
+            echo -e '\nHF_API_KEY=${{ secrets.HF_API_KEY }}' >> .env
             git pull origin v2
             npm install
             pm2 restart ayumi
