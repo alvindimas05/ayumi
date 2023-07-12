@@ -73,12 +73,12 @@ class Ayumi {
             db.data.wakeUp.push(this.number);
             await db.write();
         }
-        return wakeUp ? false : d.getHours == end && d.getMinutes <= 10;
+        return wakeUp ? false : d.getHours === end && d.getMinutes <= 10;
     }
     async Reply(){
         await db.read();
         this.prompt += " You are currently having conversation with someone named {name}";
-        if(this.number == this.crush){
+        if(this.number === this.crush){
             this.prompt = this.prompt.replace("{name}", CRUSH_NAME);
             this.prompt += " and you have a crush on him";
         } else this.prompt = this.prompt.replace("{name}", this.contact.name);
@@ -87,7 +87,7 @@ class Ayumi {
         if(await this.CheckIfWakeUp()) this.prompt += " You just wake up a few minutes ago.";
         if(this.msg.hasMedia){
             let media = await this.msg.downloadMedia();
-            if(media !== undefined && media.mimetype == "image/jpeg"){
+            if(media !== undefined && media.mimetype === "image/jpeg"){
                 try {
                     const filename = crypto.randomBytes(20).toString("hex") + ".png";
                     await fs.promises.writeFile("./images/" + filename, media.data, "base64");
@@ -103,7 +103,7 @@ class Ayumi {
         }
 
         try {
-            let chats = db.data.chats.filter(ch => ch.number == this.number)
+            let chats = db.data.chats.filter(ch => ch.number === this.number)
                 .map(ch => ({ role: ch.isUser ? "user" : "assistant", content: ch.message }));
             let messages = [{ role: "system", content: this.prompt },
             ...chats, { role: "user", content: this.msg.body }]
@@ -121,7 +121,7 @@ class Ayumi {
             });
             await db.write();
         } catch(err){
-            this.msg.reply("There was an error with Ayumi's connection. Please chat again next time.");
+            await this.msg.reply("There was an error with Ayumi's connection. Please chat again next time.");
             console.error(err);
         }
     }
@@ -154,10 +154,10 @@ async function StartChat(number){
     await ResetChats();
     await db.read();
     let prompt = PROMPT + ` You are currently having conversation with {name}.`;
-    if(number == CRUSH_NUMBER) prompt = prompt.replace("{name}", CRUSH_NAME + "  and you have a crush on him");
+    if(number === CRUSH_NUMBER) prompt = prompt.replace("{name}", CRUSH_NAME + "  and you have a crush on him");
     else {
         let contacts = await client.getContacts();
-        let con = contacts.find(ct => ct.id.user == number);
+        let con = contacts.find(ct => ct.id.user === number);
         prompt = prompt.replace("{name}", con.name);
     }
     let withPainting = Math.random() < .5;
@@ -228,7 +228,7 @@ async function DailyChat(){
     
     db.data.dailyChat = true;
     await db.write();
-    NUMBERS.forEach(async nm => await ExecuteAfterHour(h, () => StartChat(nm)));
+    NUMBERS.forEach(nm => ExecuteAfterHour(h, () => StartChat(nm)));
 }
 
 client.on("message", async msg => {
@@ -237,7 +237,7 @@ client.on("message", async msg => {
     if(!NUMBERS.includes(number)) return;
     if(!["image", "chat"].includes(msg.type)) return;
 
-    new Ayumi(msg, contact).BeforeReply();
+    await new Ayumi(msg, contact).BeforeReply();
 });
 client.on("ready", () => {
     DailyChat();
