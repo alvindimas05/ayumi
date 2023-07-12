@@ -40,7 +40,7 @@ def post():
     req = request.get_json()
     res = ChatCompletion.create(
         model=Model.gpt_35_turbo,
-        provider=Provider.DeepAi,
+        provider=Provider.GetGpt,
         messages=req["messages"]
     )
     return res
