@@ -160,38 +160,14 @@ async function StartChat(number){
         let con = contacts.find(ct => ct.id.user === number);
         prompt = prompt.replace("{name}", con.name);
     }
-    let withPainting = Math.random() < .5;
-    let predict = null;
-    if(withPainting){
-        try {
-            let messages = [{ role: "user", content: process.env.PAINTING_PROMPT }];
-            let promp = (await axios.post(process.env.OPENAI_URL, { messages })).data;
-            prompt = promp.replaceAll('"', "");
-            
-            let res = await axios.post("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1",
-            { inputs: promp, wait_for_model: true }, { responseType: "arraybuffer" });
-    
-            let buffer = Buffer.from(res.data, 'binary').toString("base64");
-            await fs.promises.writeFile("./images/painting.png", buffer, "base64");
-            
-            predict = await PredictImage("painting.png");
-            if(predict[predict.length - 1] === " ") predict = predict.slice(0, -1);
-            prompt += " You showed your painting about " + predict + ".";
-        } catch(err){
-            console.error(err);
-            withPainting = false;
-        }
-    }
     prompt += " You start the conversation.";
     try {
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
 
         result = result.split("\n")[0].replaceAll('"', "").replaceAll("Ayumi: ", "");
-        let media = withPainting ? MessageMedia.fromFilePath("./images/painting.png") : null;
-        client.sendMessage(number + "@c.us", result, withPainting ? { media } : undefined);
+        client.sendMessage(number + "@c.us", result);
 
-        if(withPainting) result += "\n*shows your painting about " + predict;
         db.data.chats.push({
             number: number,
             isUser: false,

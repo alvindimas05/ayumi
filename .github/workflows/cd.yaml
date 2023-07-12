@@ -2,11 +2,12 @@ name: Node.js CD
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['v2']
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Deploy using ssh
         uses: appleboy/ssh-action@master
@@ -17,6 +18,8 @@ jobs:
           port: 22
           script: |
             cd ~/ayumi
+            rm -rf db.json .env
+            cp .env.example .env
             git pull origin v2
             npm install
             pm2 restart ayumi
