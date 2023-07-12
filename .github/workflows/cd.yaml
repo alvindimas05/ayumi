@@ -1,8 +1,7 @@
 name: Node.js CD
 
 on:
-  pull_request:
-    branches: [v2]
+  workflow_dispatch:
 
 jobs:
   build:
