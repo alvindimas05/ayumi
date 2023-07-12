@@ -30,7 +30,7 @@ function ExecuteAfterHour(hour, func){
 async function PredictImage(filename){
     let res = await axios.post("https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large",
     { wait_for_model: true, inputs: `${process.env.EXPRESS_URL}images/${filename}` },
-        { headers: { Authorization: `BEARER ${process.env.HF_API_KEY}` } });
+        { headers: { Authorization: `Bearer ${process.env.HF_API_KEY}` } });
     return res.data[0].generated_text;
 }
 
