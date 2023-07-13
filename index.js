@@ -165,7 +165,7 @@ async function StartChat(number){
         let con = contacts.find(ct => ct.id.user === number);
         prompt = prompt.replace("{name}", con.name);
     }
-    prompt += " You or Ayumi start the chat first.";
+    prompt += " Initiate the conversation with random topic that you like.";
     try {
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
