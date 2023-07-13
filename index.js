@@ -146,7 +146,7 @@ async function ResetChats(){
     db.data = {
         chats: [],
         wakeUp: [],
-        // dailyChat: false
+        dailyChat: false
     };
     await db.write();
 }
