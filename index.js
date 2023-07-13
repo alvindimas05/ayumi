@@ -197,8 +197,9 @@ function getRandomRange(min, max) {
 async function DailyChat(){
     await db.read();
     if(db.data.dailyChat) return;
-    let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours();
+    db.data.dailyChat = true;
 
+    let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours();
     const ayumi = new Ayumi();
     if(ayumi.CheckIfSleeping(start) || ayumi.CheckIfWorking(start)){
         start = parseInt(process.env.SLEEP_END);
@@ -207,7 +208,6 @@ async function DailyChat(){
     const h = getRandomRange(start, work);
     console.log(`Daily chat at ${h}:00`);
     
-    db.data.dailyChat = true;
     await db.write();
     NUMBERS.forEach(nm => ExecuteAfterHour(h, () => StartChat(nm)));
 }
