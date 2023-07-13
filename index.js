@@ -165,7 +165,7 @@ async function StartChat(number){
         let con = contacts.find(ct => ct.id.user === number);
         prompt = prompt.replace("{name}", con.name);
     }
-    prompt += " You start the conversation.";
+    prompt += " Ayumi start the conversation first.";
     try {
         let messages = [{ role: "system", content: prompt }]
         let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
@@ -194,18 +194,22 @@ function getRandomRange(min, max) {
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-async function DailyChat(){
+async function DailyChat(now = false){
     await db.read();
     if(db.data.dailyChat) return;
     db.data.dailyChat = true;
 
-    let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours();
-    const ayumi = new Ayumi();
-    if(ayumi.CheckIfSleeping(start) || ayumi.CheckIfWorking(start)){
-        start = parseInt(process.env.SLEEP_END);
-    }
+    let h;
+    if(now) h = (new Date()).getHours()
+    else {
+        let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours();
+        const ayumi = new Ayumi();
+        if(ayumi.CheckIfSleeping(start) || ayumi.CheckIfWorking(start)){
+            start = parseInt(process.env.SLEEP_END);
+        }
 
-    const h = getRandomRange(start, work);
+        h = getRandomRange(start, work);
+    }
     console.log(`Daily chat at ${h}:00`);
     
     await db.write();
@@ -221,7 +225,7 @@ client.on("message", async msg => {
     await new Ayumi(msg, contact).BeforeReply();
 });
 client.on("ready", () => {
-    DailyChat();
+    DailyChat(true);
     setInterval(DailyChat, 60 * 1000);
     console.log("Client is ready!");
 });
