@@ -194,22 +194,18 @@ function getRandomRange(min, max) {
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-async function DailyChat(now = false){
+async function DailyChat(){
     await db.read();
     if(db.data.dailyChat) return;
     db.data.dailyChat = true;
 
-    let h;
-    if(now) h = (new Date()).getHours()
-    else {
-        let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours();
-        const ayumi = new Ayumi();
-        if(ayumi.CheckIfSleeping(start) || ayumi.CheckIfWorking(start)){
-            start = parseInt(process.env.SLEEP_END);
-        }
-
-        h = getRandomRange(start, work);
+    let work = parseInt(process.env.WORKING_START), start = (new Date()).getHours();
+    const ayumi = new Ayumi();
+    if(ayumi.CheckIfSleeping(start) || ayumi.CheckIfWorking(start)){
+        start = parseInt(process.env.SLEEP_END);
     }
+
+    const h = getRandomRange(start, work);
     console.log(`Daily chat at ${h}:00`);
     
     await db.write();
@@ -225,7 +221,7 @@ client.on("message", async msg => {
     await new Ayumi(msg, contact).BeforeReply();
 });
 client.on("ready", () => {
-    DailyChat(true);
+    DailyChat();
     setInterval(DailyChat, 60 * 1000);
     console.log("Client is ready!");
 });
