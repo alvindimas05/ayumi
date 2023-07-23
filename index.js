@@ -6,6 +6,12 @@ const CRUSH_NUMBER = process.env.CRUSH_NUMBER;
 const CRUSH_NAME = process.env.CRUSH_NAME;
 const NODE_ENV = process.env.NODE_ENV.trim();
 
+async function generateChatCompletion(messages){
+    return await new Promise((resolve, reject) => {
+        const {spawn} = require("child_process");
+        spawn("python3", ["gpt.py", JSON.stringify(messages)]).stdout.on("data", data => resolve(data.toString().trim()))
+    });
+}
 function IsInRange(start, end, hours = null){
     start = parseInt(start);
     end = parseInt(end);
@@ -110,7 +116,7 @@ class Ayumi {
                 .map(ch => ({ role: ch.isUser ? "user" : "assistant", content: ch.message }));
             let messages = [{ role: "system", content: this.prompt },
             ...chats, { role: "user", content: this.msg.body }]
-            let result = (await axios.post(process.env.OPENAI_URL, { messages })).data;
+            let result = await generateChatCompletion(messages);
             if(this.msg.hasMedia) fs.unlinkSync("./images/" + filename);
 
             await this.msg.reply(result);
@@ -145,8 +151,7 @@ async function ResetChats(){
     await db.read();
     db.data = {
         chats: [],
-        wakeUp: [],
-        dailyChat: false
+        wakeUp: []
     };
     await db.write();
 }
@@ -184,16 +189,16 @@ async function ResetChats(){
 //     }
 // }
 // ExecuteAfterHour(process.env.STATUS_TIME, () => setInterval(SetStatus, parseInt(process.env.STATUS_DELAY) * 24 * 60 * 60 * 1000));
-// ExecuteAfterHour(process.env.SLEEP_START, () => setInterval(() => {
-//     ResetChats();
-//     ResetDaily();
-// }, 24 * 60 * 60 * 1000));
+ExecuteAfterHour(process.env.SLEEP_START, () => setInterval(() => {
+    ResetChats();
+    // ResetDaily();
+}, 24 * 60 * 60 * 1000));
 // Chat all numbers on random hours except sleep or working time
-function getRandomRange(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+// function getRandomRange(min, max) {
+//     min = Math.ceil(min);
+//     max = Math.floor(max);
+//     return Math.floor(Math.random() * (max - min + 1)) + min;
+// }
 // async function DailyChat(){
 //     await db.read();
 //     if(db.data.dailyChat) return;
