@@ -1,16 +1,10 @@
 const qrcode = require("qrcode-terminal");
 const fs = require("fs");
 const crypto = require("crypto");
-const axios = require("axios").default;
 const express = require("express");
 require("dotenv").config();
 process.env.TZ = "Asia/Jakarta";
 
-// const { Configuration, OpenAIApi } = require("openai");
-// const OpenAIConfig = new Configuration({
-//     apiKey: process.env.OPENAI_API_KEY
-// });
-// const openai = new OpenAIApi(OpenAIConfig);
 const app = express();
 app.use("/images", express.static("images"));
 
@@ -38,4 +32,4 @@ const db = new Low(adapter);
 })();
 if(!fs.existsSync("./images")) fs.mkdirSync("./images");
 
-module.exports = { WAWebJS, axios, client, db, fs, app, crypto };
+module.exports = { WAWebJS, client, db, fs, app, crypto };
